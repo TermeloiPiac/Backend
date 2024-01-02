@@ -10,9 +10,17 @@ import com.termeloiPiac.entity.Role;
 import com.termeloiPiac.entity.User;
 import com.termeloiPiac.security.jwt.JwtUtils;
 import com.termeloiPiac.service.UserDetailsImpl;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,16 +28,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Calendar;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = "http://localhost:4200", maxAge = 3600, allowCredentials = "true",
+        allowedHeaders = {"Origin", "X-Api-Key", "X-Requested-With", "Content-Type", "Accept", "Authorization"},
+        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS, RequestMethod.PUT, RequestMethod.DELETE})
 @RestController
 @RequestMapping("/termeloiPiac/api/auth")
 public class AuthController {
+
     private final AuthenticationManager authenticationManager;
     private final UserDAO userDAO;
     private final RoleDAO roleDAO;
@@ -46,12 +54,39 @@ public class AuthController {
         this.jwtUtils = jwtUtils;
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthController.class);
+
+    @GetMapping("/session")
+    public ResponseEntity<?> getSession(@CookieValue(name = "_sessionUser") Cookie cookie) {
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        UserDetailsImpl userDetails = null;
+
+        LOGGER.info("#cc {}", cookie);
+        if(cookie != null) {
+            ResponseCookie resCookie = ResponseCookie.from("_sessionUser", cookie.getValue())
+                    .maxAge(86400)
+                    .domain("localhost")
+                    .path("/")
+                    .secure(true)
+                    .httpOnly(true)
+                    .build();
+
+            httpHeaders.add(HttpHeaders.SET_COOKIE, resCookie.toString());
+
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        }
+        return ResponseEntity.ok()
+                .headers(httpHeaders)
+                .body(userDetails != null);
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequestDTO loginRequestDTO) {
 
         Authentication authentication = authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()));
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
 
@@ -59,12 +94,13 @@ public class AuthController {
         List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
-
-        return ResponseEntity
-                .ok(new LoginResponseDTO(jwt, userDetails.getId(), userDetails.getFirstname(),
-                        userDetails.getLastname(), userDetails.getUsername(), userDetails.getPhoneNumber(), userDetails.getCreateDate(), roles));
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.add(HttpHeaders.SET_COOKIE, jwtUtils.generateSessionUserCookie(jwt).toString());
+        return ResponseEntity.ok()
+                .headers(httpHeaders)
+                .body(new LoginResponseDTO(userDetails.getId(), userDetails.getFirstname(),
+                        userDetails.getLastname(), userDetails.getUsername(), userDetails.getEmail(), userDetails.getPhoneNumber(), userDetails.getCreateDate(), roles));
     }
-
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequestDTO registerRequestDTO) {
         if (userDAO.existsByEmail(registerRequestDTO.getEmail())) {

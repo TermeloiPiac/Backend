@@ -6,41 +6,33 @@ import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class LoginResponseDTO {
-    private String token;
-    private String type = "Bearer";
     private Long id;
     private String firstName;
     private String lastName;
+    private String username;
     private String email;
     private String phoneNumber;
     private Calendar createDate;
     private List<String> roles;
 
-    public LoginResponseDTO(String token, Long id, String firstName, String lastName, String email, String phoneNumber, Calendar createDate, List<String> roles) {
-        this.token = token;
+    public LoginResponseDTO(Long id, String firstName, String lastName, String username, String email, String phoneNumber){
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.username = username;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+    }
+
+    public LoginResponseDTO(Long id, String firstName, String lastName, String username, String email, String phoneNumber, Calendar createDate, List<String> roles) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.username = username;
         this.email = email;
         this.phoneNumber = phoneNumber;
         this.createDate = createDate;
         this.roles = roles;
-    }
-
-    public String getAccessToken() {
-        return token;
-    }
-
-    public void setAccessToken(String token) {
-        this.token = token;
-    }
-
-    public String getTokenType() {
-        return type;
-    }
-
-    public void setTokenType(String type) {
-        this.type = type;
     }
 
     public Long getId() {
@@ -65,6 +57,14 @@ public class LoginResponseDTO {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getEmail() {
@@ -102,11 +102,10 @@ public class LoginResponseDTO {
     @Override
     public String toString() {
         return "LoginResponseDTO{" +
-                "token='" + token + '\'' +
-                ", type='" + type + '\'' +
                 ", id=" + id +
                 ", firstname='" + firstName + '\'' +
                 ", lastname='" + lastName + '\'' +
+                ", username='" + username + '\'' +
                 ", email='" + email + '\'' +
                 ", phoneNumber='" + phoneNumber + '\'' +
                 ", createDate=" + createDate +
